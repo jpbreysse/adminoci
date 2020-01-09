@@ -1,0 +1,14 @@
+- hosts: localhost
+  vars_files:
+    - start_stop_variables.yml
+
+  tasks:
+   - name: Start a Database Node
+     oci_db_node:
+      db_node_id: "{{node}}"
+      state: 'start'
+     register: result
+
+
+   - debug:
+      msg: "status {{result.db_node.lifecycle_state}}"
