@@ -1,0 +1,133 @@
+- hosts: database
+
+  vars:
+    stack: client
+
+  tasks:
+  - name: Displays the stack name
+    debug:
+      msg: "About to deploy stack {{ item }}"
+    with_items:
+    - "{{ stack }}"
+
+  - name: download the database template
+    get_url:
+      url: https://objectstorage.eu-frankfurt-1.oraclecloud.com/p/neicCocBGs2GHBiQVvQo9FJoJ76r5-fey4U_fAvYyX8/n/nomad/b/db-templates.nomadvantage.com/o/openpharma/databases/5.4.4-model1/database.pdb
+      dest: /tmp/database.pdb
+      mode: 0755
+      owner: oracle
+      group: oinstall
+
+  - name: download the database pkcs12 wallet
+    get_url:
+      url: https://objectstorage.eu-frankfurt-1.oraclecloud.com/p/_ynpVWMRZcQ_5KViE8sJu2zupIQUd4Q01_NYZZ9_yPA/n/nomad/b/db-templates.nomadvantage.com/o/openpharma/databases/5.4.4-model1/database.p12
+      dest: /tmp/database.p12
+      mode: 0755
+      owner: oracle
+      group: oinstall
+
+
+# pdb = 'pdb2'
+# item = ChefVault::Item.load("pdbs", pdb)
+
+# bash 'install_db' do
+#   user 'oracle'
+#   code <<-EOF
+
+#   export ORAENV_ASK=NO
+#   export ORACLE_SID=YELLOW
+#   . oraenv
+
+#   export ORACLE_UNQNAME=$(sqlplus -S '/ as sysdba' <<FINISH | sed '/^$/d'  
+#     set head off
+#     select DB_UNIQUE_NAME from v\\\$database;
+#     exit;
+# FINISH
+# )
+
+#   cd /opt/oracle/dcs/commonstore/wallets/tde/\$ORACLE_UNQNAME
+#   mv cwallet.sso cwallet.sso.bak
+
+#   sqlplus /nolog <<FINISH
+#   connect / as sysdba
+#   set feedback on
+#   set termout on
+#   create pluggable database #{pdb} using '/tmp/database.pdb'; 
+
+#   alter session set container=#{pdb};
+#   ADMINISTER KEY MANAGEMENT SET KEYSTORE close;
+#   ADMINISTER KEY MANAGEMENT SET KEYSTORE close identified by "#{item['dbpassword']}";
+
+#   alter session set container=cdb\\\$root;
+#   alter pluggable database #{pdb} open;
+
+#   ADMINISTER KEY MANAGEMENT SET KEYSTORE close;
+#   ADMINISTER KEY MANAGEMENT SET KEYSTORE close
+#      identified by "#{item['dbpassword']}";
+#   administer key management set keystore open 
+#     identified by "#{item['dbpassword']}";
+
+#   alter session set container=#{pdb};
+
+#   administer key management set keystore open 
+#     identified by "#{item['dbpassword']}";
+
+#   administer key management import encryption keys 
+#     with secret "#{item['pdbpassword']}" from '/tmp/database.p12'
+#     identified by "#{item['dbpassword']}" with backup;
+
+#   alter session set container=cdb\\\$root;
+
+#   ADMINISTER KEY MANAGEMENT SET KEYSTORE close 
+#     IDENTIFIED BY "#{item['dbpassword']}" CONTAINER=all;
+#   ADMINISTER KEY MANAGEMENT SET KEYSTORE open 
+#     IDENTIFIED BY "#{item['dbpassword']}" CONTAINER=all;
+
+#   host rm -f /opt/oracle/dcs/commonstore/wallets/tde/\$ORACLE_UNQNAME/cwallet.sso
+
+#   ADMINISTER KEY MANAGEMENT CREATE AUTO_LOGIN KEYSTORE 
+#     FROM KEYSTORE '/opt/oracle/dcs/commonstore/wallets/tde/\$ORACLE_UNQNAME'
+#     IDENTIFIED BY "#{item['dbpassword']}";
+
+#   alter pluggable database #{pdb} close;
+#   alter pluggable database #{pdb} open;
+
+#   alter session set container=#{pdb};
+
+#   ADMINISTER KEY MANAGEMENT SET KEYSTORE open 
+#   IDENTIFIED BY "#{item['dbpassword']}" CONTAINER=current;
+
+#   exit
+# FINISH
+
+# mkdir -p /opt/oracle/dcs/commonstore/pdbs
+# touch "/opt/oracle/dcs/commonstore/pdbs/#{pdb}"
+
+#   EOF
+#   not_if { ::File.exist?("/opt/oracle/dcs/commonstore/pdbs/#{pdb}") }
+# end
+
+
+# bash 'download' do
+#   code <<-EOF
+#     set -e
+
+#     export OCI_CLI_AUTH=instance_principal
+#     oci os object get --bucket-name=#{bucket} \
+#       --namespace=#{namespace} --name="#{objectpath}" \
+#       --file "#{localpath}"
+#     REMOTE_MD5=$(oci os object head --bucket-name=#{bucket} \
+#       --namespace=#{namespace} --name="#{objectpath}" \
+#       | jq -r '."content-md5"')
+
+#     MD5=$(md5sum "#{localpath}" | awk '{print $1}') 
+#     CONTENT_MD5=$( (echo 0:;echo $MD5) | xxd -rp -l 16|base64)
+
+#     if [[ "${CONTENT_MD5}" != "${REMOTE_MD5}" ]]; then
+#       rm -f "#{localpath}"
+#       print "Error downloading #{bucket}:#{objectpath}; MD5 does not match\n"
+#     fi
+
+#     EOF
+#   not_if { ::File.exist?(localpath) }
+# end
