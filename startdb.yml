@@ -1,0 +1,36 @@
+- hosts: localhost
+
+  tasks:
+  - name: Get the database status
+    shell: |
+      export TENANCY=$(cat ~/.oci/config | grep "^tenancy=" | cut -d'=' -f2)
+      export SYSTEM=$(oci db system list --compartment-id=$TENANCY \
+        --query 'data[?hostname==`staging-db` && "lifecycle-state"!=`TERMINATED`].{id:id}' | \
+        jq -r '.[].id')
+      export DOMAIN=$(oci db system get --db-system-id=$SYSTEM \
+        --query='data.{domain:domain}' | jq -r '.domain')
+      export NODE=$((oci db node list --compartment-id=$TENANCY --db-system-id=$SYSTEM \
+        --query='data[?"lifecycle-state"==`STOPPED`].{id:id}' || true)| \
+        jq -r '.[].id')
+      export HOST_NAME=$((oci db node list --compartment-id=$TENANCY --db-system-id=$SYSTEM \
+        --query='data[?"lifecycle-state"==`STOPPED`].{hostname:hostname}' || true) | \
+        jq -r '.[].hostname')
+      echo -n "{\"tenancy\": \"$TENANCY\", \"system\": \"$SYSTEM\", \"domain\": \"$DOMAIN\", "
+      echo -n "\"node\": \"$NODE\", \"hostname\": \"$HOST_NAME\"}"
+    register: dbsystem
+    changed_when: False
+
+  - name: Display the database status
+    vars:
+      db: "{{dbsystem.stdout | from_json}}"
+    debug:
+      msg: "{{db}}" 
+
+  - name: Start the database
+    vars:
+      db: "{{dbsystem.stdout | from_json}}"
+    shell: |
+      oci db node start --db-node-id={{db.node}} \
+        --wait-for-state "STARTING" --max-wait-seconds 60  --wait-interval-seconds 5
+    changed_when: db.node != ""
+    when: db.node != ""
